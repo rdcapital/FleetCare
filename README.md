@@ -56,7 +56,7 @@ FleetCare helps small delivery businesses keep vehicle records, fuel purchases, 
 The app starts with empty states. Dashboard values are derived from saved records; no operational figures are seeded or hardcoded. Currency is selected in Settings and controls display and entry labels; changing it does not convert amounts already recorded.
 Appearance is selected in Settings and saved locally in the browser; System follows the device's current light/dark preference.
 
-Fuel-use trends need at least three fuel entries with increasing odometer readings and assume each entry represents a full tank. They are estimates, not vehicle diagnoses. To import fuel from Excel, download the fuel template from Reports, fill it in, save it as a CSV file, then choose it in the import section. Imports match registration numbers to existing vehicles and show a preview before saving.
+Fuel-use trends need at least three fuel entries with increasing odometer readings and assume each entry represents a full tank. They are estimates, not vehicle diagnoses. To import fuel from Excel, open Fuel Records, download the fuel template, fill it in, save it as a CSV file, then choose it in the import section. Imports match registration numbers to existing vehicles and show a preview before saving.
 
 ## API
 
