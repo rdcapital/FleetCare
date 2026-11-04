@@ -1,13 +1,12 @@
 {
-  "rewrites" : [
+  "rewrites": [
     {
       "source": "/api/:path*",
-      "destinatiom":"https://https://fleetcare-vf92.onrender.com"
+      "destination": "https://fleetcare-vf92.onrender.com/api/:path*"
     },
     {
-      "source": "/path*",
-      "destination": "index.html"
-      
+      "source": "/:path*",
+      "destination": "/index.html"
     }
   ]
 }
