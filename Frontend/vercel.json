@@ -1,0 +1,13 @@
+{
+  "rewrites" : [
+    {
+      "source": "/api/:path*",
+      "destinatiom":"https://https://fleetcare-vf92.onrender.com"
+    },
+    {
+      "source": "/path*",
+      "destination": "index.html"
+      
+    }
+  ]
+}
