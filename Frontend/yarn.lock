@@ -473,7 +473,7 @@ postcss@^8.5.30:
   dependencies:
     scheduler "^0.28.0"
 
-"react-is@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0":
+"react-is@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", react-is@^19.3.1:
   version "19.3.1"
   resolved "https://registry.npmjs.org/react-is/-/react-is-19.3.1.tgz"
   integrity sha512-RRieF6IyxQBkcK6pP8xOHprLTPW6QjRkbGdImtqNme+/hYVwCZkLQLdlZGOhUqXwkS9IEynaGvPJtv6XB/cz0Q==
