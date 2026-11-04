@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Activity, ArrowDownRight, ArrowUpRight, Bell, Bike, BriefcaseBusiness, CalendarDays, CarFront, Check, ChevronDown, CircleDollarSign, ClipboardList, FileDown, Fuel, LayoutDashboard, LogOut, Menu, Plus, Search, Settings, ShieldCheck, Truck, Wrench, X } from 'lucide-react'
+import { Activity, ArrowDownRight, ArrowUpRight, Bell, Bike, BriefcaseBusiness, CalendarDays, CarFront, Check, ChevronDown, CircleDollarSign, ClipboardList, FileDown, Fuel, LayoutDashboard, Lightbulb, LogOut, Menu, Plus, Search, Settings, ShieldCheck, Truck, Upload, Wrench, X } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { fuelCsvTemplate, fuelEfficiencyByVehicle, parseFuelCsv } from './utils/fuelCsv.js'
 import './App.css'
 
 const API = '/api'
@@ -345,18 +346,123 @@ function VehicleProfile() {
 }
 function Detail({ label, value }) { return <div className="detail-row"><span>{label}</span><strong>{value}</strong></div> }
 
+function FuelInsights({ records, vehicles }) {
+  const analysis = fuelEfficiencyByVehicle(records, vehicles)
+  const enoughData = analysis.filter((item) => item.average !== null)
+  return <section className="panel fuel-insights">
+    <div className="panel-heading"><div><div className="panel-kicker">FUEL USE CHECK</div><h2>Small ways to save fuel</h2></div><Lightbulb size={18} className="muted-icon" /></div>
+    {!enoughData.length
+      ? <p className="fuel-insight-copy">Add at least four fuel records for a vehicle, with increasing odometer readings, to see an estimated trend. These estimates work best when each entry is a full tank.</p>
+      : <div className="fuel-insight-list">{enoughData.map(({ vehicle, average, changePercent }) => {
+        const change = changePercent === null ? null : Math.round(changePercent)
+        const improving = change !== null && change <= -10
+        const rising = change !== null && change >= 10
+        const message = rising
+          ? 'Fuel used per distance has risen. Check tyre pressure, extra load, long idling, and whether servicing is due.'
+          : improving
+            ? 'Fuel use per distance is lower than earlier records. Keep the driving and maintenance habits that helped.'
+            : change === null
+              ? 'More complete fuel records are needed before FleetCare can compare your trend.'
+              : 'Fuel use looks fairly steady. Keeping tyres, load, and servicing in good shape can help.'
+        return <article className="fuel-insight-row" key={vehicle._id}>
+          <div className={`fuel-insight-mark ${rising ? 'attention' : improving ? 'positive' : ''}`}>{rising ? <ArrowUpRight size={16} /> : <Check size={16} />}</div>
+          <div className="fuel-insight-text"><strong>{vehicle.registrationNumber} · about {average.toFixed(1)} L/100 km</strong><p>{message}</p></div>
+          <span className={`fuel-change ${rising ? 'attention' : improving ? 'positive' : ''}`}>{change === null ? 'Need more data' : `${change > 0 ? '+' : ''}${change}% lately`}</span>
+        </article>
+      })}</div>}
+    <p className="fuel-insight-note">Estimate only: compares litres bought with kilometres between odometer entries and assumes each purchase fills the tank. Different routes, loads, or partial fill-ups can change the result. It is not a mechanical diagnosis.</p>
+  </section>
+}
+
+function FuelCsvImport({ vehicles, existingRecords, onComplete }) {
+  const inputRef = useRef(null)
+  const [rows, setRows] = useState([])
+  const [error, setError] = useState('')
+  const [status, setStatus] = useState('')
+  const [busy, setBusy] = useState(false)
+  const validRows = rows.filter((row) => row.record)
+  const invalidRows = rows.filter((row) => row.error)
+
+  async function selectFile(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    setRows([])
+    setStatus('')
+    setError('')
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setError('Choose a CSV file. In Excel, use Save As and select CSV UTF-8 (Comma delimited).')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Keep the CSV file under 2 MB.')
+      return
+    }
+    try {
+      setRows(parseFuelCsv(await file.text(), vehicles, existingRecords))
+    } catch (issue) {
+      setError(issue.message)
+    }
+  }
+
+  async function importRows() {
+    setBusy(true)
+    setError('')
+    setStatus('')
+    const invalidBeforeImport = invalidRows
+    const failures = []
+    let imported = 0
+    for (let index = 0; index < validRows.length; index += 5) {
+      await Promise.all(validRows.slice(index, index + 5).map(async (row) => {
+        try {
+          await request('/fuel', { method: 'POST', body: JSON.stringify(row.record) })
+          imported += 1
+        } catch (issue) {
+          failures.push({ ...row, record: undefined, error: `Could not save this row: ${issue.message}` })
+        }
+      }))
+    }
+    const remaining = [...invalidBeforeImport, ...failures].sort((left, right) => left.rowNumber - right.rowNumber)
+    setRows(remaining)
+    if (imported) onComplete()
+    setStatus(remaining.length
+      ? `Imported ${imported}; ${remaining.length} row(s) need attention. Problem rows remain listed.`
+      : `Imported ${imported} fuel record(s) successfully.`)
+    setBusy(false)
+  }
+
+  return <section className="panel fuel-import">
+    <div className="panel-heading"><div><div className="panel-kicker">BRING YOUR RECORDS</div><h2>Import fuel from a spreadsheet</h2></div><Upload size={18} className="muted-icon" /></div>
+    <p className="fuel-import-copy">Use the Fuel template above. Fill it in with your vehicle registration, date, odometer, litres, and amount. Match registration numbers to vehicles already in FleetCare.</p>
+    <div className="fuel-import-controls"><input ref={inputRef} className="sr-only" type="file" accept=".csv,text/csv" onChange={selectFile} /><button className="button button-outline" onClick={() => inputRef.current?.click()} disabled={busy || !vehicles.length}><Upload size={15} /> Choose CSV file</button>{!vehicles.length && <span>Add a vehicle before importing fuel records.</span>}{rows.length > 0 && <span>{validRows.length} ready · {invalidRows.length} need fixing</span>}</div>
+    {error && <div className="form-error fuel-import-message" role="alert">{error}</div>}
+    {status && <div className={`fuel-import-message ${invalidRows.length ? 'form-error' : 'import-success'}`} role="status">{status}</div>}
+    {rows.length > 0 && <><div className="table-scroll fuel-preview"><table><thead><tr><th>ROW</th><th>VEHICLE</th><th>DATE</th><th>LITRES</th><th>AMOUNT</th><th>CHECK</th></tr></thead><tbody>{rows.map((row) => <tr key={row.rowNumber}><td>{row.rowNumber}</td><td>{row.record ? vehicles.find((item) => item._id === row.record.vehicleId)?.registrationNumber : '—'}</td><td>{row.record?.date || '—'}</td><td>{row.record?.litres ?? '—'}</td><td>{row.record ? row.record.amount.toFixed(2) : '—'}</td><td>{row.error || 'Ready'}</td></tr>)}</tbody></table></div><button className="button button-primary" onClick={importRows} disabled={busy || !validRows.length}>{busy ? 'Importing...' : `Import ${validRows.length} valid record(s)`}</button></>}
+  </section>
+}
+
 function Reports() {
   const formatMoney = useMoney()
   const currency = useCurrency()
   const [data, setData] = useState({ vehicles: [], fuel: [], maintenance: [] }); const [error, setError] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState('')
-  useEffect(() => { Promise.all([request('/vehicles'), request('/fuel'), request('/maintenance')]).then(([vehicles, fuel, maintenance]) => setData({ vehicles, fuel, maintenance })).catch((issue) => setError(issue.message)) }, [])
+  const [reload, setReload] = useState(0)
+  useEffect(() => { Promise.all([request('/vehicles'), request('/fuel'), request('/maintenance')]).then(([vehicles, fuel, maintenance]) => setData({ vehicles, fuel, maintenance })).catch((issue) => setError(issue.message)) }, [reload])
   const filterDate = (item, date) => (!from || new Date(date) >= new Date(`${from}T00:00:00`)) && (!to || new Date(date) <= new Date(`${to}T23:59:59`))
   const fuel = data.fuel.filter((item) => filterDate(item, item.date)); const maintenance = data.maintenance.filter((item) => filterDate(item, item.serviceDate))
   const totalFuel = fuel.reduce((sum, item) => sum + item.amount, 0); const totalService = maintenance.reduce((sum, item) => sum + item.amount, 0)
   const vehicleRows = data.vehicles.map((vehicle) => { const vehicleFuel = fuel.filter((item) => (item.vehicleId?._id || item.vehicleId) === vehicle._id).reduce((sum, item) => sum + item.amount, 0); const vehicleService = maintenance.filter((item) => (item.vehicleId?._id || item.vehicleId) === vehicle._id).reduce((sum, item) => sum + item.amount, 0); return { vehicle, fuel: vehicleFuel, maintenance: vehicleService, total: vehicleFuel + vehicleService } }).sort((a, b) => b.total - a.total)
   function exportCsv() { const lines = [['Vehicle', `Fuel spend (${currency})`, `Maintenance spend (${currency})`, `Total operating cost (${currency})`], ...vehicleRows.map(({ vehicle, fuel: fuelAmount, maintenance: serviceAmount, total }) => [vehicle.registrationNumber, fuelAmount.toFixed(2), serviceAmount.toFixed(2), total.toFixed(2)])]; const csv = lines.map((row) => row.map((field) => `"${String(field).replaceAll('"', '""')}"`).join(',')).join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = 'fleetcare-expenses.csv'; link.click(); URL.revokeObjectURL(link.href) }
-  return <><PageHeading eyebrow="COST VISIBILITY" title="Reports" description="Understand what it costs to keep each delivery vehicle moving." action={<button className="button button-outline" onClick={exportCsv} disabled={!vehicleRows.length}><FileDown size={16} /> Export CSV</button>} /><ErrorNotice error={error} />
+  const importTemplate = () => {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([fuelCsvTemplate()], { type: 'text/csv;charset=utf-8' }))
+    link.download = 'fleetcare-fuel-import-template.csv'
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+  return <><PageHeading eyebrow="COST VISIBILITY" title="Reports" description="Understand what it costs to keep each delivery vehicle moving." action={<div className="report-actions"><button className="button button-outline" onClick={importTemplate}><FileDown size={16} /> Fuel template</button><button className="button button-primary" onClick={exportCsv} disabled={!vehicleRows.length}><FileDown size={16} /> Export CSV</button></div>} /><ErrorNotice error={error} />
     <section className="panel report-filters"><CalendarDays size={18} /><strong>Date range</strong><label className="date-filter"><span>From</span><input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label className="date-filter"><span>To</span><input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label><button className="text-link" onClick={() => { setFrom(''); setTo('') }}>Clear</button></section>
+    <FuelInsights records={fuel} vehicles={data.vehicles} />
+    <FuelCsvImport vehicles={data.vehicles} existingRecords={data.fuel} onComplete={() => setReload((count) => count + 1)} />
     <div className="stat-grid report-stat-grid"><StatCard icon={Fuel} label="Fuel expenditure" value={formatMoney(totalFuel)} note={`${fuel.length} purchases`} tone="blue" /><StatCard icon={Wrench} label="Maintenance expenditure" value={formatMoney(totalService)} note={`${maintenance.length} services`} tone="amber" /><StatCard icon={CircleDollarSign} label="Operating costs" value={formatMoney(totalFuel + totalService)} note="Selected date range" tone="green" /></div>
     <section className="panel table-panel"><div className="panel-heading report-table-heading"><div><div className="panel-kicker">VEHICLE COST BREAKDOWN</div><h2>Operating spend by vehicle</h2></div></div>{!vehicleRows.length ? <EmptyState icon={Truck} title="No vehicle data yet" detail="Register vehicles and record costs to see a breakdown." action={<NavLink to="/vehicles" className="button button-primary"><Plus size={16} /> Add a vehicle</NavLink>} /> : <div className="table-scroll"><table><thead><tr><th>VEHICLE</th><th>FUEL</th><th>MAINTENANCE</th><th>TOTAL COST</th></tr></thead><tbody>{vehicleRows.map(({ vehicle, fuel: fuelAmount, maintenance: serviceAmount, total }) => <tr key={vehicle._id}><td><NavLink to={`/vehicles/${vehicle._id}`} className="table-vehicle"><span className="vehicle-type-icon"><VehicleIcon type={vehicle.vehicleType} /></span><span><strong>{vehicle.registrationNumber}</strong><small>{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.vehicleType}</small></span></NavLink></td><td>{formatMoney(fuelAmount)}</td><td>{formatMoney(serviceAmount)}</td><td className="amount-cell">{formatMoney(total)}</td></tr>)}</tbody></table></div>}</section>
   </>
