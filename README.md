@@ -59,6 +59,7 @@ Appearance is selected in Settings and saved locally in the browser; System foll
 All records except account registration, sign-in, and health checks require `Authorization: Bearer <token>`.
 
 - `GET /api/health`
+- `GET /` (service status for hosting health checks)
 - `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
 - `GET|POST /api/vehicles`, `PATCH|DELETE /api/vehicles/:id`
 - `GET /api/vehicles/:id/history`
