@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #1d2c28;
+  background: #f5f7f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --ink: #1d2c28;
+  --muted: #7d8983;
+  --line: #e8ece9;
+  --canvas: #f5f7f5;
+  --green: #2caa7d;
+  --green-dark: #18845e;
+  --navy: #172a26;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  color: #dce7e1;
+  background: #101a16;
+  --ink: #dce7e1;
+  --muted: #9aa9a1;
+  --line: #2b3a33;
+  --canvas: #101a16;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #f5f7f5;
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+:root[data-theme='dark'] body {
+  background: #101a16;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  color: #12392d;
+  background: #c9efde;
+}
