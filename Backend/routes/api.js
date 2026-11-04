@@ -93,7 +93,9 @@ export default function createApiRouter({
           if (from) filter[dateField].$gte = from
           if (to) filter[dateField].$lte = to
         }
-        const records = await model.find(filter).sort({ [dateField]: -1 }).populate('vehicleId', 'registrationNumber make model')
+        const query = model.find(filter).sort({ [dateField]: -1 })
+        if (resource !== 'vehicles') query.populate('vehicleId', 'registrationNumber make model')
+        const records = await query
         res.json(records)
       } catch (error) { next(error) }
     })
