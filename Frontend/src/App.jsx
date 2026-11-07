@@ -84,7 +84,7 @@ async function request(path, options = {}) {
       },
     })
   } catch {
-    throw new Error('FleetCare cannot reach its API. Start the Backend and check its MongoDB settings, then try again.')
+    throw new Error('We’re having trouble connecting right now. Please try again in a moment.')
   }
   if (response.status === 204) return null
   const result = await response.json().catch(() => ({}))
